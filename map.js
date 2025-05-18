@@ -138,7 +138,23 @@ const radiusScale = d3
       .attr('cy', (d) => getCoords(d).cy);
   }
 
-  updatePositions();
+
+updatePositions();
+
+circles.each(function (d) {
+  d3.select(this)
+    .append('title')
+    .text(
+      `${d.totalTraffic} trips (${d.departures} departures, ${d.arrivals} arrivals)`
+    );
+});
+
+// (CSS for #map circles removed from JS file. Place the following in your HTML or a CSS file instead:)
+// #map circles {
+//   pointer-events: auto;
+// }
+
+
 
   // Keep them updated as the map moves
   map.on('move', updatePositions);
