@@ -17,3 +17,21 @@ const map = new mapboxgl.Map({
   maxZoom: 18,
 });
 
+map.on('load', async () => {
+  // Add Boston bike lane data
+  map.addSource('boston_route', {
+    type: 'geojson',
+    data: 'https://bostonopendata-boston.opendata.arcgis.com/datasets/boston::existing-bike-network-2022.geojson',
+  });
+
+  map.addLayer({
+    id: 'bike-lanes',
+    type: 'line',
+    source: 'boston_route',
+    paint: {
+      'line-color': 'green',
+      'line-width': 3,
+      'line-opacity': 0.4,
+    },
+  });
+});
