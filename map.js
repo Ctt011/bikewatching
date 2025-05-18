@@ -110,6 +110,11 @@ stations = stations.map((station) => {
   return station;
 });
 
+const radiusScale = d3
+  .scaleSqrt()
+  .domain([0, d3.max(stations, (d) => d.totalTraffic)])
+  .range([0, 25]);  // [min radius, max radius]
+
 
 
   // Append circles to SVG overlay
@@ -120,7 +125,7 @@ stations = stations.map((station) => {
     .data(stations, (d) => d.short_name)
     .enter()
     .append('circle')
-    .attr('r', 5)
+    .attr('r', (d) => radiusScale(d.totalTraffic))
     .attr('fill', 'steelblue')
     .attr('stroke', 'white')
     .attr('stroke-width', 1)
