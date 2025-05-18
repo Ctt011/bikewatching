@@ -18,13 +18,22 @@
   </head>
 
   <body>
-    <h1>🚴🏼‍♀️ Bikewatching</h1>
-
-    <!-- ✅ Only one map container -->
-    <div id="map">
-      <svg></svg>
+  <header style="display: flex; gap: 1em; align-items: baseline;">
+    <div>
+      <h1>🚴🏼‍♀️ Bikewatching</h1>
+      <p>An interactive map visualizing Boston-area bike lanes and BlueBike station traffic.</p>
     </div>
+    <label style="margin-left: auto;">
+      Filter by time:
+      <input type="range" id="time-slider" min="-1" max="1440" value="-1" />
+      <time id="selected-time" style="display: block;"></time>
+      <em id="any-time" style="display: block; color: #777;">(any time)</em>
+    </label>
+  </header>
 
-    <p>An interactive map visualizing Boston-area bike lanes and BlueBike station traffic.</p>
-  </body>
+  <div id="map">
+    <svg></svg>
+  </div>
+</body>
+
 </html>
