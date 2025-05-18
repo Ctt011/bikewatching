@@ -120,16 +120,24 @@ const radiusScale = d3
   // Append circles to SVG overlay
   const svg = d3.select('#map').select('svg');
 
-  const circles = svg
-    .selectAll('circle')
-    .data(stations, (d) => d.short_name)
-    .enter()
-    .append('circle')
-    .attr('r', (d) => radiusScale(d.totalTraffic))
-    .attr('fill', 'steelblue')
-    .attr('stroke', 'white')
-    .attr('stroke-width', 1)
-    .attr('opacity', 0.8);
+const circles = svg
+  .selectAll('circle')
+  .data(stations, (d) => d.short_name)
+  .enter()
+  .append('circle')
+  .attr('r', (d) => radiusScale(d.totalTraffic))
+  .attr('fill', 'steelblue')
+  .attr('stroke', 'white')
+  .attr('stroke-width', 1)
+  .attr('opacity', 0.8)
+  .each(function (d) {
+    d3.select(this)
+      .append('title')
+      .text(
+        `${d.totalTraffic} trips (${d.departures} departures, ${d.arrivals} arrivals)`
+      );
+  });
+
 
   // Position circles correctly
   function updatePositions() {
@@ -141,13 +149,6 @@ const radiusScale = d3
 
 updatePositions();
 
-circles.each(function (d) {
-  d3.select(this)
-    .append('title')
-    .text(
-      `${d.totalTraffic} trips (${d.departures} departures, ${d.arrivals} arrivals)`
-    );
-});
 
 // (CSS for #map circles removed from JS file. Place the following in your HTML or a CSS file instead:)
 // #map circles {
