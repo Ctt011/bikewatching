@@ -57,6 +57,9 @@ function computeStationTraffic(stations, trips) {
   });
 }
 
+// Flow color scale
+const stationFlow = d3.scaleQuantize().domain([0, 1]).range([0, 0.5, 1]);
+
 // === Main Execution ===
 map.on('load', async () => {
   // Add Boston and Cambridge bike lanes
@@ -121,10 +124,12 @@ map.on('load', async () => {
     .enter()
     .append('circle')
     .attr('r', (d) => radiusScale(d.totalTraffic))
-    .attr('fill', 'steelblue')
     .attr('stroke', 'white')
     .attr('stroke-width', 1)
     .attr('opacity', 0.8)
+    .style('--departure-ratio', (d) =>
+      stationFlow(d.totalTraffic === 0 ? 0.5 : d.departures / d.totalTraffic)
+    )
     .each(function (d) {
       d3.select(this)
         .append('title')
@@ -168,13 +173,15 @@ map.on('load', async () => {
     const filteredTrips = filterTripsByTime(trips, timeFilter);
     const updatedStations = computeStationTraffic(stations, filteredTrips);
 
-    // Adjust scale range based on filter
     radiusScale.range(timeFilter === -1 ? [0, 25] : [3, 50]);
 
     circles
       .data(updatedStations, (d) => d.short_name)
       .join('circle')
-      .attr('r', (d) => radiusScale(d.totalTraffic));
+      .attr('r', (d) => radiusScale(d.totalTraffic))
+      .style('--departure-ratio', (d) =>
+        stationFlow(d.totalTraffic === 0 ? 0.5 : d.departures / d.totalTraffic)
+      );
   }
 
   timeSlider.addEventListener('input', updateTimeDisplay);
