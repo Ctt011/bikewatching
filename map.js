@@ -27,6 +27,11 @@ function getCoords(station) {
   return { cx: x, cy: y };
 }
 
+function formatTime(minutes) {
+  const date = new Date(0, 0, 0, 0, minutes);
+  return date.toLocaleString('en-US', { timeStyle: 'short' });
+}
+
 // Wait for map to load before adding data and layers
 map.on('load', async () => {
   // Add Boston bike lanes
@@ -150,10 +155,48 @@ const circles = svg
 updatePositions();
 
 
-// (CSS for #map circles removed from JS file. Place the following in your HTML or a CSS file instead:)
-// #map circles {
-//   pointer-events: auto;
-// }
+const timeSlider = document.getElementById('time-slider');
+const selectedTime = document.getElementById('selected-time');
+const anyTimeLabel = document.getElementById('any-time');
+
+function updateTimeDisplay() {
+  const timeFilter = Number(timeSlider.value);
+
+  if (timeFilter === -1) {
+    selectedTime.textContent = '';
+    anyTimeLabel.style.display = 'block';
+  } else {
+    selectedTime.textContent = formatTime(timeFilter);
+    anyTimeLabel.style.display = 'none';
+  }
+
+  // We'll call updateScatterPlot(timeFilter) here later
+}
+
+const timeSlider = document.getElementById('time-slider');
+const selectedTime = document.getElementById('selected-time');
+const anyTimeLabel = document.getElementById('any-time');
+
+function updateTimeDisplay() {
+  const timeFilter = Number(timeSlider.value);
+
+  if (timeFilter === -1) {
+    selectedTime.textContent = '';
+    anyTimeLabel.style.display = 'block';
+  } else {
+    selectedTime.textContent = formatTime(timeFilter);
+    anyTimeLabel.style.display = 'none';
+  }
+
+  // We'll call updateScatterPlot(timeFilter) here later
+}
+
+// React to slider movement
+timeSlider.addEventListener('input', updateTimeDisplay);
+
+// Call once initially to set display
+updateTimeDisplay();
+
 
 
 
