@@ -77,6 +77,18 @@ map.on('load', async () => {
   let stations = jsonData.data.stations;
   console.log('Stations Array:', stations);
 
+  let trips = await d3.csv(
+  'https://dsc106.com/labs/lab07/data/bluebikes-traffic-2024-03.csv',
+  (trip) => {
+    trip.started_at = new Date(trip.started_at);
+    trip.ended_at = new Date(trip.ended_at);
+    return trip;
+  }
+);
+
+console.log('Loaded trips:', trips.slice(0, 5)); // optional debug
+
+
   // Append circles to SVG overlay
   const svg = d3.select('#map').select('svg');
 
