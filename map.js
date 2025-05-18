@@ -1,14 +1,9 @@
-
-
 // Import Mapbox and D3
 import mapboxgl from 'https://cdn.jsdelivr.net/npm/mapbox-gl@2.15.0/+esm';
 import * as d3 from 'https://cdn.jsdelivr.net/npm/d3@7.9.0/+esm';
 
-// Set your Mapbox access token
+// Access token
 mapboxgl.accessToken = 'pk.eyJ1IjoiY3R0MDExIiwiYSI6ImNtYXQ3M2J4djBqNHoyd29rYWdsMDB4YzcifQ.Np_wx7rHELKIWAVF6XljsA';
-
-// Check that Mapbox GL JS is loaded
-console.log('Mapbox GL JS Loaded:', mapboxgl);
 
 // Create the map
 const map = new mapboxgl.Map({
@@ -20,7 +15,7 @@ const map = new mapboxgl.Map({
   maxZoom: 18,
 });
 
-// Define coordinate projection helper
+// === Helper Functions ===
 function getCoords(station) {
   const point = new mapboxgl.LngLat(+station.lon, +station.lat);
   const { x, y } = map.project(point);
@@ -32,9 +27,39 @@ function formatTime(minutes) {
   return date.toLocaleString('en-US', { timeStyle: 'short' });
 }
 
-// Wait for map to load before adding data and layers
+function minutesSinceMidnight(date) {
+  return date.getHours() * 60 + date.getMinutes();
+}
+
+function filterTripsByTime(trips, timeFilter) {
+  return timeFilter === -1
+    ? trips
+    : trips.filter((trip) => {
+        const started = minutesSinceMidnight(trip.started_at);
+        const ended = minutesSinceMidnight(trip.ended_at);
+        return (
+          Math.abs(started - timeFilter) <= 60 ||
+          Math.abs(ended - timeFilter) <= 60
+        );
+      });
+}
+
+function computeStationTraffic(stations, trips) {
+  const departures = d3.rollup(trips, v => v.length, d => d.start_station_id);
+  const arrivals = d3.rollup(trips, v => v.length, d => d.end_station_id);
+
+  return stations.map((station) => {
+    const id = station.short_name;
+    station.arrivals = arrivals.get(id) ?? 0;
+    station.departures = departures.get(id) ?? 0;
+    station.totalTraffic = station.arrivals + station.departures;
+    return station;
+  });
+}
+
+// === Main Execution ===
 map.on('load', async () => {
-  // Add Boston bike lanes
+  // Add Boston and Cambridge bike lanes
   map.addSource('boston_route', {
     type: 'geojson',
     data: 'https://bostonopendata-boston.opendata.arcgis.com/datasets/boston::existing-bike-network-2022.geojson',
@@ -51,7 +76,6 @@ map.on('load', async () => {
     },
   });
 
-  // Add Cambridge bike lanes
   map.addSource('cambridge_route', {
     type: 'geojson',
     data: 'https://data.cambridgema.gov/api/geospatial/sckh-bd5c?method=export&format=GeoJSON',
@@ -68,141 +92,91 @@ map.on('load', async () => {
     },
   });
 
-  // Fetch Bluebike stations
-  let jsonData;
-  try {
-    const jsonurl = 'https://dsc106.com/labs/lab07/data/bluebikes-stations.json';
-    jsonData = await d3.json(jsonurl);
-    console.log('Loaded JSON Data:', jsonData);
-  } catch (error) {
-    console.error('Error loading JSON:', error);
-    return;
-  }
-
+  // Load stations and trips
+  const jsonData = await d3.json('https://dsc106.com/labs/lab07/data/bluebikes-stations.json');
   let stations = jsonData.data.stations;
-  console.log('Stations Array:', stations);
 
-  let trips = await d3.csv(
-  'https://dsc106.com/labs/lab07/data/bluebikes-traffic-2024-03.csv',
-  (trip) => {
-    trip.started_at = new Date(trip.started_at);
-    trip.ended_at = new Date(trip.ended_at);
-    return trip;
-  }
-);
+  const trips = await d3.csv(
+    'https://dsc106.com/labs/lab07/data/bluebikes-traffic-2024-03.csv',
+    (trip) => {
+      trip.started_at = new Date(trip.started_at);
+      trip.ended_at = new Date(trip.ended_at);
+      return trip;
+    }
+  );
 
+  // Initial traffic stats
+  stations = computeStationTraffic(stations, trips);
 
-console.log('Loaded trips:', trips.slice(0, 5)); // optional debug
+  const radiusScale = d3
+    .scaleSqrt()
+    .domain([0, d3.max(stations, (d) => d.totalTraffic)])
+    .range([0, 25]);
 
-
-const departures = d3.rollup(
-  trips,
-  (v) => v.length,
-  (d) => d.start_station_id
-);
-
-const arrivals = d3.rollup(
-  trips,
-  (v) => v.length,
-  (d) => d.end_station_id
-);
-
-stations = stations.map((station) => {
-  const id = station.short_name;
-  station.arrivals = arrivals.get(id) ?? 0;
-  station.departures = departures.get(id) ?? 0;
-  station.totalTraffic = station.arrivals + station.departures;
-  return station;
-});
-
-const radiusScale = d3
-  .scaleSqrt()
-  .domain([0, d3.max(stations, (d) => d.totalTraffic)])
-  .range([0, 25]);  // [min radius, max radius]
-
-
-
-  // Append circles to SVG overlay
   const svg = d3.select('#map').select('svg');
 
-const circles = svg
-  .selectAll('circle')
-  .data(stations, (d) => d.short_name)
-  .enter()
-  .append('circle')
-  .attr('r', (d) => radiusScale(d.totalTraffic))
-  .attr('fill', 'steelblue')
-  .attr('stroke', 'white')
-  .attr('stroke-width', 1)
-  .attr('opacity', 0.8)
-  .each(function (d) {
-    d3.select(this)
-      .append('title')
-      .text(
-        `${d.totalTraffic} trips (${d.departures} departures, ${d.arrivals} arrivals)`
-      );
-  });
+  const circles = svg
+    .selectAll('circle')
+    .data(stations, (d) => d.short_name)
+    .enter()
+    .append('circle')
+    .attr('r', (d) => radiusScale(d.totalTraffic))
+    .attr('fill', 'steelblue')
+    .attr('stroke', 'white')
+    .attr('stroke-width', 1)
+    .attr('opacity', 0.8)
+    .each(function (d) {
+      d3.select(this)
+        .append('title')
+        .text(
+          `${d.totalTraffic} trips (${d.departures} departures, ${d.arrivals} arrivals)`
+        );
+    });
 
-
-  // Position circles correctly
   function updatePositions() {
     circles
       .attr('cx', (d) => getCoords(d).cx)
       .attr('cy', (d) => getCoords(d).cy);
   }
 
-
-updatePositions();
-
-
-const timeSlider = document.getElementById('time-slider');
-const selectedTime = document.getElementById('selected-time');
-const anyTimeLabel = document.getElementById('any-time');
-
-function updateTimeDisplay() {
-  const timeFilter = Number(timeSlider.value);
-
-  if (timeFilter === -1) {
-    selectedTime.textContent = '';
-    anyTimeLabel.style.display = 'block';
-  } else {
-    selectedTime.textContent = formatTime(timeFilter);
-    anyTimeLabel.style.display = 'none';
-  }
-
-  // We'll call updateScatterPlot(timeFilter) here later
-}
-
-const timeSlider = document.getElementById('time-slider');
-const selectedTime = document.getElementById('selected-time');
-const anyTimeLabel = document.getElementById('any-time');
-
-function updateTimeDisplay() {
-  const timeFilter = Number(timeSlider.value);
-
-  if (timeFilter === -1) {
-    selectedTime.textContent = '';
-    anyTimeLabel.style.display = 'block';
-  } else {
-    selectedTime.textContent = formatTime(timeFilter);
-    anyTimeLabel.style.display = 'none';
-  }
-
-  // We'll call updateScatterPlot(timeFilter) here later
-}
-
-// React to slider movement
-timeSlider.addEventListener('input', updateTimeDisplay);
-
-// Call once initially to set display
-updateTimeDisplay();
-
-
-
-
-  // Keep them updated as the map moves
+  updatePositions();
   map.on('move', updatePositions);
   map.on('zoom', updatePositions);
   map.on('resize', updatePositions);
   map.on('moveend', updatePositions);
+
+  // === Time slider interaction ===
+  const timeSlider = document.getElementById('time-slider');
+  const selectedTime = document.getElementById('selected-time');
+  const anyTimeLabel = document.getElementById('any-time');
+
+  function updateTimeDisplay() {
+    const timeFilter = Number(timeSlider.value);
+
+    if (timeFilter === -1) {
+      selectedTime.textContent = '';
+      anyTimeLabel.style.display = 'block';
+    } else {
+      selectedTime.textContent = formatTime(timeFilter);
+      anyTimeLabel.style.display = 'none';
+    }
+
+    updateScatterPlot(timeFilter);
+  }
+
+  function updateScatterPlot(timeFilter) {
+    const filteredTrips = filterTripsByTime(trips, timeFilter);
+    const updatedStations = computeStationTraffic(stations, filteredTrips);
+
+    // Adjust scale range based on filter
+    radiusScale.range(timeFilter === -1 ? [0, 25] : [3, 50]);
+
+    circles
+      .data(updatedStations, (d) => d.short_name)
+      .join('circle')
+      .attr('r', (d) => radiusScale(d.totalTraffic));
+  }
+
+  timeSlider.addEventListener('input', updateTimeDisplay);
+  updateTimeDisplay();
 });
