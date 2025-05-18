@@ -86,7 +86,30 @@ map.on('load', async () => {
   }
 );
 
+
 console.log('Loaded trips:', trips.slice(0, 5)); // optional debug
+
+
+const departures = d3.rollup(
+  trips,
+  (v) => v.length,
+  (d) => d.start_station_id
+);
+
+const arrivals = d3.rollup(
+  trips,
+  (v) => v.length,
+  (d) => d.end_station_id
+);
+
+stations = stations.map((station) => {
+  const id = station.short_name;
+  station.arrivals = arrivals.get(id) ?? 0;
+  station.departures = departures.get(id) ?? 0;
+  station.totalTraffic = station.arrivals + station.departures;
+  return station;
+});
+
 
 
   // Append circles to SVG overlay
